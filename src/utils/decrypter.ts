@@ -1,5 +1,14 @@
 import * as crypto from "crypto";
 
+export interface DecrypterConfig {
+  SALTED_PREFIX: string;
+  AES_KEY_LENGTH: number;
+  AES_IV_LENGTH: number;
+  PBKDF2_ITERATIONS: number;
+  PBKDF2_HASH: string;
+  ALGORITHM: string;
+}
+
 export class Decrypter {
   private SALTED_PREFIX: string;
   private AES_KEY_LENGTH: number;
@@ -8,14 +17,7 @@ export class Decrypter {
   private PBKDF2_HASH: string;
   private ALGORITHM: string;
 
-  constructor(config: {
-    SALTED_PREFIX: string;
-    AES_KEY_LENGTH: number;
-    AES_IV_LENGTH: number;
-    PBKDF2_ITERATIONS: number;
-    PBKDF2_HASH: string;
-    ALGORITHM: string;
-  }) {
+  constructor(config: DecrypterConfig) {
     this.SALTED_PREFIX = config.SALTED_PREFIX;
     this.AES_KEY_LENGTH = config.AES_KEY_LENGTH;
     this.AES_IV_LENGTH = config.AES_IV_LENGTH;
