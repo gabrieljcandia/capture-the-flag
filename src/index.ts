@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as crypto from "crypto";
 
 // Constants
+const PUBLIK_KEY_PATH = "./external/Public.pub";
 const PRIVATE_KEY_PATH = "./external/Private.pem";
 const MESSAGE_PATH = "./external/message.txt";
 const SALTED_PREFIX = "Salted__"; // Prefix for OpenSSL-encrypted files
@@ -11,6 +12,7 @@ const PBKDF2_ITERATIONS = 10000; // Number of iterations for PBKDF2
 const PBKDF2_HASH = "sha256"; // Hashing algorithm for PBKDF2
 
 // Load files
+const publicKey = fs.readFileSync(PUBLIK_KEY_PATH, "utf8");
 const privateKey: string = fs.readFileSync(PRIVATE_KEY_PATH, "utf8");
 const message: string = fs.readFileSync(MESSAGE_PATH, "utf8");
 
@@ -25,16 +27,13 @@ const [encryptedPassphrase, encryptedPayload, digitalSignature] =
  * @returns The decrypted passphrase as a Buffer.
  */
 function decryptPassphrase(
-  encryptedPassphrase: string,
+  encryptedPassphrase: Buffer,
   privateKey: string
 ): Buffer {
-  // Decode the encrypted passphrase from Base64
-  const buffer = Buffer.from(encryptedPassphrase, "base64");
-
   // Decrypt the passphrase using the private key with PKCS#1 padding
   return crypto.privateDecrypt(
     { key: privateKey, padding: crypto.constants.RSA_PKCS1_PADDING },
-    buffer
+    encryptedPassphrase
   );
 }
 
@@ -83,15 +82,60 @@ function decryptPayload(payload: Buffer, passphrase: Buffer): string {
   }
 }
 
+/**
+ * Verifies the digital signature of the passphrase using the public key.
+ * @param passphrase - The passphrase as binary data.
+ * @param signature - The digital signature as binary data.
+ * @param publicKey - The public key used to verify the signature.
+ * @returns `true` if the signature is valid, `false` otherwise.
+ */
+function verifySignature(
+  passphrase: Buffer,
+  signature: Buffer,
+  publicKey: string
+): boolean {
+  try {
+    // Create a verifier object using the same hash algorithm used during signing
+    const verifier = crypto.createVerify("sha256");
+
+    // Update the verifier with the data to be verified (the passphrase)
+    verifier.update(passphrase);
+
+    // Finalize the verification process
+    verifier.end();
+
+    // Verify the signature using the public key
+    // Returns true if the signature matches the passphrase, false otherwise
+    return verifier.verify(publicKey, signature);
+  } catch (error) {
+    console.error(
+      "Error during signature verification:",
+      (error as Error).message
+    );
+    return false;
+  }
+}
+
 try {
-  const passphrase = decryptPassphrase(encryptedPassphrase, privateKey);
+  const passphrase = Buffer.from(encryptedPassphrase, "base64");
+  const decryptedPassphrase = decryptPassphrase(passphrase, privateKey);
 
   const decryptedMessage = decryptPayload(
     Buffer.from(encryptedPayload, "base64"),
-    passphrase
+    decryptedPassphrase
   );
 
   console.log("Decrypted Message:", decryptedMessage);
+
+  const signature = Buffer.from(digitalSignature, "base64");
+  const isValid = verifySignature(passphrase, signature, publicKey);
+  if (isValid) {
+    console.log("Passphrase integrity verified: The signature is valid.");
+  } else {
+    console.error(
+      "Passphrase integrity verification failed: Invalid signature."
+    );
+  }
 } catch (error) {
   console.error("Error:", error);
 }
