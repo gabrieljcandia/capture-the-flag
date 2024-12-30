@@ -49,14 +49,17 @@ export class Decrypter {
    * @returns The decrypted payload as a UTF-8 string.
    */
   public decryptPayload(payload: Buffer, passphrase: Buffer): string {
-    if (payload.slice(0, 8).toString() !== this.SALTED_PREFIX) {
+    if (payload.subarray(0, 8).toString() !== this.SALTED_PREFIX) {
       throw new Error(
         `Payload does not have the expected ${this.SALTED_PREFIX} prefix.`
       );
     }
 
-    const salt = payload.slice(8, 16);
-    const encryptedData = payload.slice(16);
+    // Extract the salt (next 8 bytes after the prefix)
+    const salt = payload.subarray(8, 16);
+
+    // Extract the encrypted data (everything after the salt)
+    const encryptedData = payload.subarray(16);
 
     const derivedKey = crypto.pbkdf2Sync(
       passphrase,
@@ -65,8 +68,10 @@ export class Decrypter {
       this.AES_KEY_LENGTH + this.AES_IV_LENGTH,
       this.PBKDF2_HASH
     );
-    const key = derivedKey.slice(0, this.AES_KEY_LENGTH);
-    const iv = derivedKey.slice(
+
+    // Use subarray for key and IV extraction
+    const key = derivedKey.subarray(0, this.AES_KEY_LENGTH);
+    const iv = derivedKey.subarray(
       this.AES_KEY_LENGTH,
       this.AES_KEY_LENGTH + this.AES_IV_LENGTH
     );
